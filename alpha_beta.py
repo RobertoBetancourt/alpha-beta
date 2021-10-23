@@ -80,8 +80,7 @@ def check_columns(board, rival_number):
   
   return valid_movements
 
-
-def check_if_winning_column(board, number_to_check: int) -> bool:
+def check_if_winning_column(board, number_to_check):
   i = 0
   j = 0
   found_winning_movement = False
@@ -104,8 +103,6 @@ def check_if_winning_column(board, number_to_check: int) -> bool:
   
 
   return found_winning_movement
-  
-
 
 def check_diagonals(board, rival_number):
   valid_movements = 0
@@ -195,35 +192,41 @@ def check_if_game_is_over(board):
 
   return True       
 
-def generate_children(parent, team, terminal):
+def generate_children(parent, current_turn, terminal):
   child_boards = []
   parent_id = get_board_id(parent['board'])
 
+  # Variable de control para búsqueda tabú
+  child_ids = []
   for i in range(5):
     for j in range(5):
       new_child = np.copy(parent['board'])
       if new_child[i][j] == 0:
-        new_child[i][j] = team
-        child_boards.append({
-          'board': new_child,
-          'depth': parent['depth'] + 1,
-          'parent': parent_id,
-          'children': [],
-          'terminal': terminal,
-          'h(j)': get_function_result(new_child, terminal)
-        }) 
+        new_child[i][j] = current_turn
+        current_id = get_board_id(new_child)
+
+        # Búsqueda tabú: se busca si un nodo "hermano" tiene el mismo id
+        # Si no es el caso, se proced a agregar el nodo actual a la lista de nodos hijos
+        if not current_id in child_ids:
+          child_ids.append(current_id)
+          child_boards.append({
+            'board': new_child,
+            'depth': parent['depth'] + 1,
+            'parent': parent_id,
+            'children': [],
+            'terminal': terminal,
+            'h(j)': get_function_result(new_child, terminal)
+          }) 
   return child_boards
 
 def alpha_beta(node, alpha, beta, graph):
   if(node['terminal']):
-    # print('terminal', node)
     return node
   
   children_ids = node['children']
   if(node['depth'] % 2 == 0):
     for child_id in children_ids:
       child_node = alpha_beta(graph[child_id], alpha, beta, graph)
-      # print(child_node)
       alpha = max(alpha, child_node['h(j)'])
       if alpha >= beta:
         node['h(j)'] = beta
@@ -234,7 +237,6 @@ def alpha_beta(node, alpha, beta, graph):
   else:
     for child_id in children_ids:
       child_node = alpha_beta(graph[child_id], alpha, beta, graph)
-      # print(child_node)
       beta = min(beta, child_node['h(j)'])
       if alpha >= beta:
         node['h(j)'] = alpha
@@ -284,9 +286,7 @@ def run_algorithm(board):
 
   alpha = -99999999999
   beta = 99999999999
-  # print(graph)
-  # print('===============================================')
-  # pprint(root)
+
   root = alpha_beta(root, alpha, beta, graph)
 
   found = False
@@ -300,13 +300,16 @@ def run_algorithm(board):
     
     i += 1
     
-
-  # print(current_node)
+  print(current_node['h(j)'])
   return current_node['board']
 
+def print_board(board, dictionary_to_print_board):
+  for i in range(5):
+    for j in range(5):
+      print(' ',dictionary_to_print_board[board[i][j]], end = '')
+    print('\n')
 
-
-def execute_game(current_turn):
+def execute_game(current_turn, dictionary_to_print_board):
   # if alguien gano o se acabo el juego, terminar ciclo
   board = np.array([
     [0, 0, 0, 0, 0],
@@ -322,7 +325,6 @@ def execute_game(current_turn):
     if current_turn == 2:
       print('Turno del usuario')
       make_user_move(board)
-      print(board)
       # Mandar a llamar a la función para validar victoria
       victory = validate_win(board, current_turn)
       if victory:
@@ -332,27 +334,28 @@ def execute_game(current_turn):
     else:
       print('Turno de la computadora')
       board = run_algorithm(board)
-      print(board)
       # Mandar a llamar a la función para validar victoria
       victory = validate_win(board, current_turn)
       if victory:
-        print('GG, perdiste')
+        print('Perdiste, victoria de la computadora')
       else:
         current_turn = 2
     
     game_over = check_if_game_is_over(board)
     if game_over:
-      print('Fin del juego')
+      print('Fin del juego, empate')
+    print_board(board, dictionary_to_print_board)
 
 def main():
-  # global graph
-  # graph = {}
-
-  user_starts = randrange(1, 3)
-
   # 0 empty space, 1 CPU, 2 user
-  
+  first_turn = randrange(1, 3)
 
-  execute_game(user_starts)
+  if(first_turn == 1):
+    dictionary_to_print_board = { 0: '-', 1: 'X', 2: 'O' }
+  else:
+    dictionary_to_print_board = { 0: '-', 1: 'O', 2: 'X' }
+
+  print('Inicia el juego:')
+  execute_game(first_turn, dictionary_to_print_board)
 
 main()

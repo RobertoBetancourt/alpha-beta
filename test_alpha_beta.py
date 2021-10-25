@@ -1,4 +1,5 @@
-from alpha_beta import check_rows, check_columns, check_diagonals, alpha_beta, check_if_winning_column, check_if_winning_row, check_if_winning_diagonal, check_if_game_is_over
+from alpha_beta import check_free_rows_to_win, check_free_columns_to_win, check_free_diagonals_to_win, alpha_beta, check_if_winning_column, check_if_winning_row, check_if_winning_diagonal, check_if_game_is_over, get_board_id, node_is_terminal
+import numpy as np 
 
 def test_check_rows():
   original_board = [
@@ -10,7 +11,7 @@ def test_check_rows():
   ]
 
   rival_number = 1
-  my_moves_from_fn = check_rows(board=original_board, rival_number=rival_number)
+  my_moves_from_fn = check_free_rows_to_win(board=original_board, rival_number=rival_number)
   expected_my_moves = 4
 
   assert(my_moves_from_fn == expected_my_moves)
@@ -26,7 +27,7 @@ def test_check_columns():
   ]
 
   rival_number = 1
-  my_moves_from_fn = check_columns(board=original_board, rival_number=rival_number)
+  my_moves_from_fn = check_free_columns_to_win(board=original_board, rival_number=rival_number)
   expected_my_moves = 4
 
   assert(my_moves_from_fn == expected_my_moves)
@@ -42,7 +43,7 @@ def test_check_diagonals():
   ]
 
   rival_number = 1
-  my_moves_from_fn = check_diagonals(board=original_board, rival_number=rival_number)
+  my_moves_from_fn = check_free_diagonals_to_win(board=original_board, rival_number=rival_number)
   expected_my_moves = 1
 
   assert(my_moves_from_fn == expected_my_moves)
@@ -58,71 +59,47 @@ def test_check_diagonals_complex():
   ]
 
   rival_number = 1
-  my_moves_from_fn = check_diagonals(board=original_board, rival_number=rival_number)
+  my_moves_from_fn = check_free_diagonals_to_win(board=original_board, rival_number=rival_number)
   expected_my_moves = 2
 
   assert(my_moves_from_fn == expected_my_moves)
 
-
 def test_alpha_beta():
-  graph = {
-    '1': {
-      'depth': 0,
-      'children': ['2', '3'],
-      'h(j)': None,
-      'terminal': False
-    },
-    '2': {
-      'depth': 1,
-      'children': ['4', '5'],
-      'h(j)': None,
-      'terminal': False
-    },
-    '3': {
-      'depth': 1,
-      'children': ['6', '7'],
-      'h(j)': None,
-      'terminal': False
-    },
-    '4': {
-      'depth': 2,
-      'children': [],
-      'h(j)': 6,
-      'terminal': True
-    },
-    '5': {
-      'depth': 2,
-      'children': [],
-      'h(j)': 3,
-      'terminal': True
-    },
-    '6': {
-      'depth': 2,
-      'children': [],
-      'h(j)': 5,
-      'terminal': True
-    },
-    '7': {
-      'depth': 2,
-      'children': [],
-      'h(j)': 10,
-      'terminal': True
-    }
-  }
+  graph = {}
 
   root = {
     'depth': 0,
-    'children': ['2', '3'],
+    'children': [],
     'h(j)': None,
-    'terminal': False
+    'terminal': False,
+    'board': np.array([
+        [2, 2, 2, 1, 1],
+        [1, 1, 2, 1, 1],
+        [1, 1, 2, 2, 2],
+        [2, 1, 2, 1, 2],
+        [2, 2, 0, 0, 0]      
+      ])
   }
+  alpha = -999999999
+  beta = 999999999
 
-  alpha = -99999999999
-  beta = 99999999999
+  root_id = get_board_id(root['board'])
+  graph[root_id] = root
 
   result = alpha_beta(root, alpha, beta, graph)
 
-  assert(5 == result['h(j)'])
+  found = False
+  current_node = None
+  i = 0
+
+  while not found and i < len(root['children']):
+    current_node = graph[root['children'][i]]
+    if root['h(j)'] == current_node['h(j)']:
+      found = True
+    
+    i += 1
+
+  assert(0 == result['h(j)'])
 
 
 def test_check_if_winning_column():
@@ -246,8 +223,21 @@ def test_check_if_not_winning_inverse_diagonal():
 
   assert(result_from_fn == expected_result)
 
-
 def test_check_if_game_is_over():
+  original_board = [
+    [1, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1]
+  ]
+
+  result_from_fn = check_if_game_is_over(board=original_board)
+  expected_result = True
+
+  assert(result_from_fn == expected_result)
+
+def test_check_if_game_is_not_over():
   original_board = [
     [0, 0, 0, 0, 1],
     [0, 0, 0, 1, 0],
@@ -261,17 +251,36 @@ def test_check_if_game_is_over():
 
   assert(result_from_fn == expected_result)
 
+def test_check_if_node_is_terminal():
+  node = {
+    'depth': 1,
+    'board': [
+      [0, 0, 1, 0, 0],
+      [0, 2, 1, 0, 2],
+      [2, 0, 1, 0, 0],
+      [0, 0, 1, 2, 0],
+      [0, 0, 1, 0, 0]
+    ],
+    'h(j)': None
+  }
 
-def test_check_if_game_is_over_when_it_is():
-  original_board = [
-    [1, 1, 1, 1, 1],
-    [1, 1, 1, 1, 1],
-    [1, 1, 1, 1, 1],
-    [1, 1, 1, 1, 1],
-    [1, 1, 1, 1, 1]
-  ]
+  result = node_is_terminal(node)
 
-  result_from_fn = check_if_game_is_over(board=original_board)
-  expected_result = True
+  assert(node['h(j)'] == 999999999)
+  assert(result == True)
 
-  assert(result_from_fn == expected_result)
+def test_check_if_node_is_not_terminal():
+  node = {
+    'depth': 1,
+    'board': [
+      [0, 0, 1, 0, 0],
+      [0, 2, 1, 0, 2],
+      [2, 0, 0, 0, 0],
+      [0, 0, 1, 2, 0],
+      [0, 0, 1, 0, 0]
+    ],
+    'h(j)': None
+  }
+
+  result = node_is_terminal(node)
+  assert(result == False)

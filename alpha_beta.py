@@ -30,25 +30,15 @@ def get_board_id(board):
         id += str(board[i][j]) + '-'
   return id
 
-def check_rows(board, rival_number):
-  valid_movements = 0 
-  currently_valid = True
+def print_formatted_board(board, formatted_board_symbols):
   for i in range(5):
     for j in range(5):
-      if board[i][j] == rival_number:
-        currently_valid = False
-        break
+      print(' ',formatted_board_symbols[board[i][j]], end = '')
+    print('\n')
 
-    if currently_valid:
-      valid_movements += 1
-
-    currently_valid = True  
-
-  return valid_movements
-  
+# Funciones para validar victoria
 def check_if_winning_row(board, number_to_check):  
   i = 0
-  # j = 0
   win = True
   while i < 5:
     j = 0
@@ -63,22 +53,6 @@ def check_if_winning_row(board, number_to_check):
     win = True
 
   return False
-
-def check_columns(board, rival_number):
-  valid_movements = 0 
-  currently_valid = True
-  for i in range(5):
-    for j in range(5):
-      if board[j][i] == rival_number:
-        currently_valid = False
-        break
-
-    if currently_valid:
-      valid_movements += 1
-
-    currently_valid = True   
-  
-  return valid_movements
 
 def check_if_winning_column(board, number_to_check):
   i = 0
@@ -104,35 +78,7 @@ def check_if_winning_column(board, number_to_check):
 
   return found_winning_movement
 
-def check_diagonals(board, rival_number):
-  valid_movements = 0
-  currently_valid = True
-  for i in range(5):
-    if board[i][i] == rival_number:
-        currently_valid = False
-        break
-
-  if currently_valid:
-    valid_movements += 1
-
-  currently_valid = True
-  anti_i = 4
-  i = 0
-
-  while currently_valid and i < 5:
-    if board[i][anti_i] == rival_number:
-      currently_valid = False
-      continue
-
-    i += 1
-    anti_i -= 1
-
-  if currently_valid:
-    valid_movements += 1
-
-  return valid_movements
-
-def check_if_winning_diagonal(board, number_to_check: int) -> bool:
+def check_if_winning_diagonal(board, number_to_check):
   i = 0
   found_winning_movement = False
   valid_diagonal = True
@@ -172,26 +118,85 @@ def check_if_winning_diagonal(board, number_to_check: int) -> bool:
 def validate_win(board, current_turn):
   return check_if_winning_row(board, current_turn) or check_if_winning_column(board, current_turn) or check_if_winning_diagonal(board, current_turn)
 
+# Funciones para validar lugares disponibles para potencial victoria
+def check_free_rows_to_win(board, rival_number):
+  valid_movements = 0 
+  currently_valid = True
+  for i in range(5):
+    for j in range(5):
+      if board[i][j] == rival_number:
+        currently_valid = False
+        break
+
+    if currently_valid:
+      valid_movements += 1
+
+    currently_valid = True  
+
+  return valid_movements
+
+def check_free_columns_to_win(board, rival_number):
+  valid_movements = 0 
+  currently_valid = True
+  for i in range(5):
+    for j in range(5):
+      if board[j][i] == rival_number:
+        currently_valid = False
+        break
+
+    if currently_valid:
+      valid_movements += 1
+
+    currently_valid = True   
+  
+  return valid_movements
+  
+def check_free_diagonals_to_win(board, rival_number):
+  valid_movements = 0
+  currently_valid = True
+  for i in range(5):
+    if board[i][i] == rival_number:
+        currently_valid = False
+        break
+
+  if currently_valid:
+    valid_movements += 1
+
+  currently_valid = True
+  anti_i = 4
+  i = 0
+
+  while currently_valid and i < 5:
+    if board[i][anti_i] == rival_number:
+      currently_valid = False
+      continue
+
+    i += 1
+    anti_i -= 1
+
+  if currently_valid:
+    valid_movements += 1
+
+  return valid_movements
+
 def get_possibilities_to_win(board, number_to_check):
   rival_number = 2 if number_to_check == 1 else 1
+  return check_free_rows_to_win(board=board, rival_number=rival_number) + check_free_columns_to_win(board=board, rival_number=rival_number) + check_free_diagonals_to_win(board=board, rival_number=rival_number)
 
-  return check_rows(board=board, rival_number=rival_number) + check_columns(board=board, rival_number=rival_number) + check_diagonals(board=board, rival_number=rival_number)
+def get_function_result(board):
+  # Obtener las posibilidades que tengo de ganar como computadora y las que tiene el usuario
+  cpu_possibilities = get_possibilities_to_win(board, 1)
+  user_possibilites = get_possibilities_to_win(board, 2)
+  return cpu_possibilities - user_possibilites
 
-def get_function_result(board, terminal):
-  if terminal:
-    # Obtener las posibilidades que tengo de ganar como computadora y las que tiene el usuario
-    h = get_possibilities_to_win(board, 1) - get_possibilities_to_win(board, 2)
-    return h
-  else:
-    return None
-
+# Función que verifica si todos los espacios del tablero están llenos
 def check_if_game_is_over(board):
   for row in board:
     if 0 in row:
       return False
-
   return True       
 
+# Función que genera los hijos de un nodo
 def generate_children(parent, current_turn, terminal):
   child_boards = []
   parent_id = get_board_id(parent['board'])
@@ -215,15 +220,54 @@ def generate_children(parent, current_turn, terminal):
             'parent': parent_id,
             'children': [],
             'terminal': terminal,
-            'h(j)': get_function_result(new_child, terminal)
-          }) 
+            'h(j)': None
+          })
   return child_boards
 
+# Función que determina si un nodo es terminal, y si es el caso, le da un valor de h(j)
+def node_is_terminal(node):
+  # Se asigna el turno actual con base en la profundidad del nodo actual
+  current_turn = 2 if node['depth'] % 2 == 0 else 1
+
+  # Si el nodo actual ya representa una victoria, se asume que es terminal, sin importar su profundidad
+  if validate_win(node['board'], current_turn):
+    if current_turn == 2:
+      node['h(j)'] = -999999999
+    else:
+      node['h(j)'] = 999999999
+    return True
+
+  # Si el nodo tiene la profundidad máxima, se obtienen las posibilidades de ganar
+  if node['depth'] == 2:
+    node['h(j)'] = get_function_result(node['board'])
+    return True
+
+  return False
+
+# Función que obtiene si el siguiente turno es del usuario o de la CPU
+def get_next_turn(node):
+  next_turn = 1 if node['depth'] % 2 == 0 else 2
+  return next_turn
+
+# Función que asocia el nodo padre con sus hijos y añade los nodos hijos al grafo
+def add_children_to_graph(parent, children, graph):
+  for child in children:
+    child_id = get_board_id(child['board'])
+    parent['children'].append(child_id)
+    graph[child_id] = child
+
+# Función que se encarga de la lógica del algoritmo alpha-beta
 def alpha_beta(node, alpha, beta, graph):
-  if(node['terminal']):
+  # Si el nodo es terminal, regresa el nodo
+  if(node_is_terminal(node)):
     return node
   
+  # Si el nodo no es terminal, se generan sus hijos, se agregan al grafo y a su padre
+  children = generate_children(node, get_next_turn(node), node['depth'] == 1)
+  add_children_to_graph(node, children, graph)
   children_ids = node['children']
+
+  # Caso MAX
   if(node['depth'] % 2 == 0):
     for child_id in children_ids:
       child_node = alpha_beta(graph[child_id], alpha, beta, graph)
@@ -234,6 +278,7 @@ def alpha_beta(node, alpha, beta, graph):
     node['h(j)'] = alpha     
     return node 
   
+  # Caso MIN
   else:
     for child_id in children_ids:
       child_node = alpha_beta(graph[child_id], alpha, beta, graph)
@@ -244,13 +289,12 @@ def alpha_beta(node, alpha, beta, graph):
     node['h(j)'] = beta    
     return node
 
-def create_graph_of_boards(board):
+def run_algorithm(board):
+  # Se inicializa el grafo
   graph = {}
 
-  # Se genera el id de la raíz y se forma el nodo
-  root_id = get_board_id(board)
+  # Se genera el nodo raíz
   root = {
-    # 'id':  root_id,
     'board': board,
     'depth': 0,
     'parent': None,
@@ -259,58 +303,24 @@ def create_graph_of_boards(board):
     'h(j)': None
   }
 
-  # El nodo se agrega al grafo
-  graph[root_id] = root
-
-  # Se generan los hijos de la raíz y se agregan al grafo
-  children = generate_children(root, 1, False)
-  for child in children:
-    child_id = get_board_id(child['board'])
-    root['children'].append(child_id)
-    graph[child_id] = child    
-
-    # Se generan los hijos de los hijos (llamados 'subhijos') y se agregan al grafo
-    subchildren = generate_children(child, 2, True)
-    for subchild in subchildren:
-      subchild_id = get_board_id(subchild['board'])
-      child['children'].append(subchild_id)
-      graph[subchild_id] = subchild
-  
-  # pprint(graph, compact=True)
-
-  return [root, graph]
-  
-
-def run_algorithm(board):
-  [root, graph] = create_graph_of_boards(board)
-
-  alpha = -99999999999
-  beta = 99999999999
-
+  alpha = -999999999
+  beta = 999999999
   root = alpha_beta(root, alpha, beta, graph)
 
   found = False
   current_node = None
-  i = 0
-
-  while not found and i < len(root['children']):
-    current_node = graph[root['children'][i]]
+  index = 0
+  while not found and index < len(root['children']):
+    current_id = root['children'][index]
+    current_node = graph[current_id]
     if root['h(j)'] == current_node['h(j)']:
       found = True
+    index += 1
     
-    i += 1
-    
-  print(current_node['h(j)'])
   return current_node['board']
 
-def print_board(board, dictionary_to_print_board):
-  for i in range(5):
-    for j in range(5):
-      print(' ',dictionary_to_print_board[board[i][j]], end = '')
-    print('\n')
-
-def execute_game(current_turn, dictionary_to_print_board):
-  # if alguien gano o se acabo el juego, terminar ciclo
+def execute_game(current_turn, formatted_board_symbols):
+  # Inicio de tablero (vacío)
   board = np.array([
     [0, 0, 0, 0, 0],
     [0, 0, 0, 0, 0],
@@ -319,11 +329,12 @@ def execute_game(current_turn, dictionary_to_print_board):
     [0, 0, 0, 0, 0]
   ])
 
+  # Si alguien ganó o se acabó el juego, terminar ciclo
   victory = False
   game_over = False
   while not victory and not game_over:
     if current_turn == 2:
-      print('Turno del usuario')
+      print('\nTurno del usuario:')
       make_user_move(board)
       # Mandar a llamar a la función para validar victoria
       victory = validate_win(board, current_turn)
@@ -332,7 +343,7 @@ def execute_game(current_turn, dictionary_to_print_board):
       else:
         current_turn = 1
     else:
-      print('Turno de la computadora')
+      print('\nTurno de la computadora:')
       board = run_algorithm(board)
       # Mandar a llamar a la función para validar victoria
       victory = validate_win(board, current_turn)
@@ -341,21 +352,21 @@ def execute_game(current_turn, dictionary_to_print_board):
       else:
         current_turn = 2
     
+    print_formatted_board(board, formatted_board_symbols)
     game_over = check_if_game_is_over(board)
     if game_over:
       print('Fin del juego, empate')
-    print_board(board, dictionary_to_print_board)
 
 def main():
   # 0 empty space, 1 CPU, 2 user
   first_turn = randrange(1, 3)
 
   if(first_turn == 1):
-    dictionary_to_print_board = { 0: '-', 1: 'X', 2: 'O' }
+    formatted_board_symbols = { 0: '-', 1: 'X', 2: 'O' }
   else:
-    dictionary_to_print_board = { 0: '-', 1: 'O', 2: 'X' }
+    formatted_board_symbols = { 0: '-', 1: 'O', 2: 'X' }
 
   print('Inicia el juego:')
-  execute_game(first_turn, dictionary_to_print_board)
+  execute_game(first_turn, formatted_board_symbols)
 
-main()
+# main()
